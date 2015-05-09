@@ -1,5 +1,6 @@
 package org.jruby.runtime;
 
+import org.jruby.EvalType;
 import org.jruby.parser.StaticScope;
 
 /**

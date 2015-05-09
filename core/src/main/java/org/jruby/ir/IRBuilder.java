@@ -354,11 +354,6 @@ public class IRBuilder {
             // ensure blocks from the loops they are present in.
             if (loop != null && ebi.innermostLoop != loop) break;
 
-            // SSS FIXME: Should $! be restored before or after the ensure block is run?
-            if (ebi.savedGlobalException != null) {
-                addInstr(new PutGlobalVarInstr("$!", ebi.savedGlobalException));
-            }
-
             // Clone into host scope
             ebi.cloneIntoHostScope(this);
         }
@@ -2215,12 +2210,8 @@ public class IRBuilder {
 
      * ****************************************************************/
     public Operand buildEnsureNode(EnsureNode ensureNode) {
-        // Save $! in a temp var so it can be restored when the exception gets handled.
-        Variable savedGlobalException = createTemporaryVariable();
-        addInstr(new GetGlobalVariableInstr(savedGlobalException, "$!"));
-
         // prepare $!-clearing ensure block
-        EnsureBlockInfo lastErrorReset = resetLastErrorPreamble(savedGlobalException);
+        EnsureBlockInfo lastErrorReset = resetLastErrorPreamble();
 
         Node bodyNode = ensureNode.getBodyNode();
 
@@ -2249,7 +2240,7 @@ public class IRBuilder {
         activeRescuers.push(ebi.dummyRescueBlockLabel);
 
         // Generate IR for code being protected
-        Operand rv = bodyNode instanceof RescueNode ? buildRescueInternal((RescueNode) bodyNode, ebi, savedGlobalException) : build(bodyNode);
+        Operand rv = bodyNode instanceof RescueNode ? buildRescueInternal((RescueNode) bodyNode, ebi, lastErrorReset.savedGlobalException) : build(bodyNode);
 
         // End of protected region
         addInstr(new ExceptionRegionEndMarkerInstr());
@@ -3033,15 +3024,11 @@ public class IRBuilder {
     }
 
     public Operand buildRescue(RescueNode node) {
-        // Save $! in a temp var so it can be restored when the exception gets handled.
-        Variable savedGlobalException = createTemporaryVariable();
-        addInstr(new GetGlobalVariableInstr(savedGlobalException, "$!"));
-
         // prepare $!-clearing ensure block
-        EnsureBlockInfo lastErrorReset = resetLastErrorPreamble(savedGlobalException);
+        EnsureBlockInfo lastErrorReset = resetLastErrorPreamble();
 
         // build the rescue itself
-        Operand rv = buildRescueInternal(node, null, savedGlobalException);
+        Operand rv = buildRescueInternal(node, null, lastErrorReset.savedGlobalException);
 
         // close out the $!-clearing region
         resetLastErrorPostamble(lastErrorReset);
@@ -3077,11 +3064,17 @@ public class IRBuilder {
         addInstr(new LabelInstr(lastErrorReset.end));
     }
 
-    private EnsureBlockInfo resetLastErrorPreamble(Variable savedGlobalException) {
+    private EnsureBlockInfo resetLastErrorPreamble() {
+        // Save $! in a temp var so it can be restored when the exception gets handled.
+        Variable savedGlobalException = createTemporaryVariable();
+        addInstr(new GetGlobalVariableInstr(savedGlobalException, "$!"));
+
         EnsureBlockInfo lastErrorReset = new EnsureBlockInfo(scope,
                 null,
                 getCurrentLoop(),
                 activeRescuers.peek());
+
+        lastErrorReset.savedGlobalException = savedGlobalException;
 
         lastErrorReset.addInstr(new PutGlobalVarInstr("$!", savedGlobalException));
 
@@ -3096,12 +3089,6 @@ public class IRBuilder {
     }
 
     private Operand buildRescueInternal(RescueNode rescueNode, EnsureBlockInfo ensure, Variable savedGlobalException) {
-        // Wrap the entire begin+rescue+ensure+else with $!-resetting "finally" logic
-
-        // Save $! in a temp var so it can be restored when the exception gets handled.
-        addInstr(new GetGlobalVariableInstr(savedGlobalException, "$!"));
-        if (ensure != null) ensure.savedGlobalException = savedGlobalException;
-
         // Labels marking start, else, end of the begin-rescue(-ensure)-end block
         Label rBeginLabel = ensure == null ? getNewLabel() : ensure.regionStart;
         Label rEndLabel   = ensure == null ? getNewLabel() : ensure.end;
