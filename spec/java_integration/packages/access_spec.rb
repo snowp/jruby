@@ -44,8 +44,23 @@ describe "java package" do
   end
 
   it "supports const_get with inherit argument" do
-    java.util.const_get("Arrays", false).should respond_to :asList
+    java.util.const_get(:Arrays, false).should respond_to :asList
   end
+
+  it 'sub-packages work with const_get' do
+    java.const_get(:util)
+    pkg = java::util.const_get(:zip)
+    pkg.should be_a Module
+    pkg.should == Java::JavaUtilZip
+
+    klass = java::util.const_get(:StringTokenizer)
+    klass.should be_a Class
+    klass.name.should == 'Java::JavaUtil::StringTokenizer'
+
+    pkg = Java::JavaxSecurityAuth.const_get(:callback, true)
+    pkg.should == Java::javax::security::auth::callback
+  end
+
 end
 
 # for DefaultPackageClass
