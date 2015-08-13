@@ -25,17 +25,17 @@ describe "java package" do
 
   it "can be imported using 'include_package \"package.module\"'" do
     m = Module.new { include_package 'java.lang' }
-    m::System.should respond_to 'getProperty'
+    m::System.should respond_to :getProperty
   end
 
   it "can be imported using 'import package.module" do
     m = Module.new { import java.lang }
-    m::System.should respond_to 'getProperty'
+    m::System.should respond_to 'currentTimeMillis'
   end
 
   it "can be imported using 'import \"package.module\"'" do
     m = Module.new { import 'java.lang' }
-    m::System.should respond_to 'getProperty'
+    m::System.currentTimeMillis
   end
 
   it "supports const_get" do
@@ -51,6 +51,7 @@ describe "java package" do
     java.const_get(:util)
     pkg = java::util.const_get(:zip)
     pkg.should be_a Module
+    pkg.should_not be_a Class
     pkg.should == Java::JavaUtilZip
 
     klass = java::util.const_get(:StringTokenizer)
@@ -61,19 +62,45 @@ describe "java package" do
     pkg.should == Java::javax::security::auth::callback
   end
 
+  it 'does not inherit constants' do
+    #expect( Java::JavaLang::TOP_LEVEL_BINDING ).to raise_error(NameError)
+    begin
+      Java::JavaLang::TOP_LEVEL_BINDING
+    rescue NameError
+    else; fail 'error not raised' end
+    #expect( Java::java.util::Object ).to raise_error(NameError)
+    begin
+      Java::java.util::Object
+    rescue NameError
+    else; fail 'error not raised' end
+  end
+
+  it 'fails with argument passed to package method' do
+    begin
+      javax.script(1)
+    rescue ArgumentError => e
+      expect( e.message ).to eql "Java package 'javax' does not have a method `script' with 1 argument"
+    else; fail 'error not raised' end
+  end
+
 end
 
 # for DefaultPackageClass
 $CLASSPATH << File.dirname(__FILE__) + "/../../../target/test-classes"
 
 describe "class in default package" do
-  it "can be opened using Java::Foo syntax" do
+  it "can be opened using Java:: syntax" do
     Java::DefaultPackageClass.new.foo.should == "foo"
     class Java::DefaultPackageClass
       def bar; 'bar'; end
     end
-    Java::DefaultPackageClass.new.bar.should == "bar"
-    Java::DefaultPackageClass.new.foo.should == "foo"
+    expect( Java::DefaultPackageClass.new.bar ).to eql "bar"
+    expect( Java::DefaultPackageClass.new.foo ).to eql "foo"
+
+    class Java::java::util::StringTokenizer
+      def xxx; 'xxx' end
+    end
+    expect( java::util::StringTokenizer.new('').xxx ).to eql 'xxx'
   end
 
   it "does not failover to a package if there are classloading errors" do
