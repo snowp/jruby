@@ -50,9 +50,9 @@ describe "java package" do
   it 'sub-packages work with const_get' do
     java.const_get(:util)
     pkg = java::util.const_get(:zip)
-    pkg.should be_a Module
-    pkg.should_not be_a Class
-    pkg.should == Java::JavaUtilZip
+    expect( pkg ).to be_a Module
+    expect( pkg.is_a?(Class) ).to be false
+    expect( pkg ).to equal Java::JavaUtilZip
 
     klass = java::util.const_get(:StringTokenizer)
     klass.should be_a Class
