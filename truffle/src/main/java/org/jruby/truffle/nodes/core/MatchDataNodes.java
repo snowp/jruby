@@ -277,10 +277,9 @@ public abstract class MatchDataNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public Object getIndex(RubyBasicObject matchData, int index, NotProvided length) {
-            CompilerDirectives.transferToInterpreter();
-
             final Object[] values = getValues(matchData);
             final int normalizedIndex = ArrayNodes.normalizeIndex(values.length, index);
 
@@ -291,9 +290,9 @@ public abstract class MatchDataNodes {
             }
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public Object getIndex(RubyBasicObject matchData, int index, int length) {
-            CompilerDirectives.transferToInterpreter();
             // TODO BJF 15-May-2015 Need to handle negative indexes and lengths and out of bounds
             final Object[] values = getValues(matchData);
             final int normalizedIndex = ArrayNodes.normalizeIndex(values.length, index);
@@ -301,10 +300,9 @@ public abstract class MatchDataNodes {
             return createArray(store, length);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization(guards = "isRubySymbol(index)")
         public Object getIndexSymbol(RubyBasicObject matchData, RubyBasicObject index, NotProvided length) {
-            CompilerDirectives.transferToInterpreter();
-
             try {
                 final int i = getBackrefNumber(matchData, SymbolNodes.getByteList(index));
 
@@ -317,10 +315,9 @@ public abstract class MatchDataNodes {
             }
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization(guards = "isRubyString(index)")
         public Object getIndexString(RubyBasicObject matchData, RubyBasicObject index, NotProvided length) {
-            CompilerDirectives.transferToInterpreter();
-
             try {
                 final int i = getBackrefNumber(matchData, StringNodes.getByteList(index));
 
@@ -336,8 +333,6 @@ public abstract class MatchDataNodes {
 
         @Specialization(guards = {"!isRubySymbol(index)", "!isRubyString(index)", "!isIntegerFixnumRange(index)"})
         public Object getIndex(VirtualFrame frame, RubyBasicObject matchData, Object index, NotProvided length) {
-            CompilerDirectives.transferToInterpreter();
-
             if (toIntNode == null) {
                 CompilerDirectives.transferToInterpreter();
                 toIntNode = insert(ToIntNodeGen.create(getContext(), getSourceSection(), null));
@@ -346,6 +341,7 @@ public abstract class MatchDataNodes {
             return getIndex(matchData, toIntNode.doInt(frame, index), NotProvided.INSTANCE);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization(guards = "isIntegerFixnumRange(range)")
         public Object getIndex(RubyBasicObject matchData, RubyBasicObject range, NotProvided len) {
             final Object[] values = getValues(matchData);
@@ -369,10 +365,9 @@ public abstract class MatchDataNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public Object begin(RubyBasicObject matchData, int index) {
-            CompilerDirectives.transferToInterpreter();
-
             if (badIndexProfile.profile((index < 0) || (index >= getNumberOfRegions(matchData)))) {
                 CompilerDirectives.transferToInterpreter();
 
@@ -393,10 +388,9 @@ public abstract class MatchDataNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyBasicObject toA(RubyBasicObject matchData) {
-            CompilerDirectives.transferToInterpreter();
-
             return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), getCaptures(matchData));
         }
     }
@@ -410,10 +404,9 @@ public abstract class MatchDataNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public Object end(RubyBasicObject matchData, int index) {
-            CompilerDirectives.transferToInterpreter();
-
             if (badIndexProfile.profile((index < 0) || (index >= getNumberOfRegions(matchData)))) {
                 CompilerDirectives.transferToInterpreter();
 
@@ -465,6 +458,7 @@ public abstract class MatchDataNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public int length(RubyBasicObject matchData) {
             return getValues(matchData).length;
@@ -482,6 +476,7 @@ public abstract class MatchDataNodes {
             taintResultNode = new TaintResultNode(getContext(), getSourceSection());
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public Object preMatch(RubyBasicObject matchData) {
             return taintResultNode.maybeTaint(getSource(matchData), getPre(matchData));
@@ -499,6 +494,7 @@ public abstract class MatchDataNodes {
             taintResultNode = new TaintResultNode(getContext(), getSourceSection());
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public Object postMatch(RubyBasicObject matchData) {
             return taintResultNode.maybeTaint(getSource(matchData), getPost(matchData));
@@ -513,10 +509,9 @@ public abstract class MatchDataNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyBasicObject toA(RubyBasicObject matchData) {
-            CompilerDirectives.transferToInterpreter();
-
             return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), getValues(matchData));
         }
     }
@@ -528,10 +523,9 @@ public abstract class MatchDataNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyBasicObject toS(RubyBasicObject matchData) {
-            CompilerDirectives.transferToInterpreter();
-
             final ByteList bytes = StringNodes.getByteList(getGlobal(matchData)).dup();
             return createString(bytes);
         }
@@ -544,6 +538,7 @@ public abstract class MatchDataNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyBasicObject regexp(RubyBasicObject matchData) {
             return getRegexp(matchData);
@@ -558,6 +553,7 @@ public abstract class MatchDataNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyBasicObject rubiniusSource(RubyBasicObject matchData) {
             return getSource(matchData);
