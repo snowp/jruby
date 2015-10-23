@@ -105,6 +105,10 @@ public class InterpreterEngine {
                                          InterpreterContext interpreterContext, RubyModule implClass,
                                          String name, IRubyObject[] args, Block block, Block.Type blockType) {
         Instr[]   instrs    = interpreterContext.getInstructions();
+        if (instrs == null) {
+            System.out.println("null instrs detected in : " + interpreterContext.getScope());
+            throw context.runtime.newRuntimeError("null instrs");
+        }
         Object[]  temp      = interpreterContext.allocateTemporaryVariables();
         double[]  floats    = interpreterContext.allocateTemporaryFloatVariables();
         long[]    fixnums   = interpreterContext.allocateTemporaryFixnumVariables();
