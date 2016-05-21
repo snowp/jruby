@@ -11,8 +11,10 @@ package org.jruby.truffle.language;
 
 import com.oracle.truffle.api.dsl.ImplicitCast;
 import com.oracle.truffle.api.dsl.TypeSystem;
+import com.oracle.truffle.api.dsl.internal.DSLOptions;
 
 @TypeSystem
+@DSLOptions(defaultGenerator = DSLOptions.DSLGenerator.FLAT)
 public abstract class RubyTypes {
 
     @ImplicitCast
