@@ -66,12 +66,91 @@ public class JRubyClassLoader extends ShrinkWrapClassLoader implements ClassDefi
 
     private Runnable unloader;
 
+    private File tempDir;
+
     public JRubyClassLoader(ClassLoader parent) {
         super(parent);
     }
 
+    // Change visibility so others can see it
+    @Override
     public void addURL(URL url) {
-        super.addURL(url);
+        // if we have such embedded jar within a jar, we copy it to temp file and use the
+        // the temp file with the super URLClassLoader
+        if (url.toString().contains( "!/" ) ||
+            !(url.getProtocol().equals("file") || url.getProtocol().equals("http") || url.getProtocol().equals("https"))) {
+            InputStream in = null; OutputStream out = null;
+            try {
+                File f = File.createTempFile("jruby", new File(url.getFile()).getName(), getTempDir());
+                f.deleteOnExit();
+                out = new BufferedOutputStream( new FileOutputStream( f ) );
+                in = new BufferedInputStream( url.openStream() );
+                int i = in.read();
+                while( i != -1 ) {
+                    out.write( i );
+                    i = in.read();
+                }
+                out.close();
+                in.close();
+                url = f.toURI().toURL();
+            }
+            catch (IOException e) {
+                throw new RuntimeException("BUG: we can not copy embedded jar to temp directory", e);
+            }
+            finally {
+                // make sure we close everything
+                if ( out != null ) {
+                    try {
+                        out.close();
+                    }
+                    catch (IOException ex) { LOG.debug(ex); }
+                }
+                if ( in != null ) {
+                    try {
+                        in.close();
+                    }
+                    catch (IOException ex) { LOG.debug(ex); }
+                }
+            }
+        }
+        super.addURL( url );
+    }
+
+    private File getTempDir() {
+        File tempDir = this.tempDir;
+        if (tempDir != null) return tempDir;
+
+        tempDir = new File(systemTmpDir(), tempDirName());
+        if (tempDir.mkdirs()) {
+            tempDir.deleteOnExit();
+        }
+        return this.tempDir = tempDir;
+    }
+
+    private static final String TEMP_DIR_PREFIX = "jruby-";
+    private static String tempDirName;
+
+    private static String tempDirName() {
+        String dirName = tempDirName;
+        if (dirName != null) return dirName;
+        try {
+            String processName = ManagementFactory.getRuntimeMXBean().getName();
+            return tempDirName = TEMP_DIR_PREFIX + processName.split("@")[0]; // jruby-PID
+        }
+        catch (Throwable ex) {
+            LOG.debug(ex); // e.g. java.lang.management classes not available (on Android)
+            return tempDirName = TEMP_DIR_PREFIX + Integer.toHexString(System.identityHashCode(JRubyClassLoader.class));
+        }
+    }
+
+    private static String systemTmpDir() {
+        try {
+            return System.getProperty("java.io.tmpdir");
+        }
+        catch (SecurityException ex) {
+            LOG.warn("could not access 'java.io.tmpdir' will use working directory", ex);
+        }
+        return "";
     }
 
     /**
