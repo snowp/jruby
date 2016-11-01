@@ -37,7 +37,13 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.management.ManagementFactory;
 import java.net.URL;
+import java.security.ProtectionDomain;
 
+import org.jboss.shrinkwrap.api.GenericArchive;
+import org.jboss.shrinkwrap.api.ShrinkWrap;
+import org.jboss.shrinkwrap.api.classloader.ShrinkWrapClassLoader;
+import org.jboss.shrinkwrap.api.importer.ZipImporter;
+import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jruby.util.log.Logger;
 import org.jruby.util.log.LoggerFactory;
 
@@ -54,97 +60,18 @@ import org.jruby.util.log.LoggerFactory;
  * all ruby resources inside any of the added jars will be found via
  * <code>require</code> and <code>load</code>
  */
-public class JRubyClassLoader extends ClassDefiningJRubyClassLoader {
+public class JRubyClassLoader extends ShrinkWrapClassLoader implements ClassDefiningClassLoader {
 
     private static final Logger LOG = LoggerFactory.getLogger(JRubyClassLoader.class);
 
     private Runnable unloader;
 
-    private File tempDir;
-
     public JRubyClassLoader(ClassLoader parent) {
         super(parent);
     }
 
-    // Change visibility so others can see it
-    @Override
     public void addURL(URL url) {
-        // if we have such embedded jar within a jar, we copy it to temp file and use the
-        // the temp file with the super URLClassLoader
-        if (url.toString().contains( "!/" ) ||
-            !(url.getProtocol().equals("file") || url.getProtocol().equals("http") || url.getProtocol().equals("https"))) {
-            InputStream in = null; OutputStream out = null;
-            try {
-                File f = File.createTempFile("jruby", new File(url.getFile()).getName(), getTempDir());
-                f.deleteOnExit();
-                out = new BufferedOutputStream( new FileOutputStream( f ) );
-                in = new BufferedInputStream( url.openStream() );
-                int i = in.read();
-                while( i != -1 ) {
-                    out.write( i );
-                    i = in.read();
-                }
-                out.close();
-                in.close();
-                url = f.toURI().toURL();
-            }
-            catch (IOException e) {
-                throw new RuntimeException("BUG: we can not copy embedded jar to temp directory", e);
-            }
-            finally {
-                // make sure we close everything
-                if ( out != null ) {
-                    try {
-                        out.close();
-                    }
-                    catch (IOException ex) { LOG.debug(ex); }
-                }
-                if ( in != null ) {
-                    try {
-                        in.close();
-                    }
-                    catch (IOException ex) { LOG.debug(ex); }
-                }
-            }
-        }
-        super.addURL( url );
-    }
-
-    private File getTempDir() {
-        File tempDir = this.tempDir;
-        if (tempDir != null) return tempDir;
-
-        tempDir = new File(systemTmpDir(), tempDirName());
-        if (tempDir.mkdirs()) {
-            tempDir.deleteOnExit();
-        }
-        return this.tempDir = tempDir;
-    }
-
-    private static final String TEMP_DIR_PREFIX = "jruby-";
-    private static String tempDirName;
-
-    private static String tempDirName() {
-        String dirName = tempDirName;
-        if (dirName != null) return dirName;
-        try {
-            String processName = ManagementFactory.getRuntimeMXBean().getName();
-            return tempDirName = TEMP_DIR_PREFIX + processName.split("@")[0]; // jruby-PID
-        }
-        catch (Throwable ex) {
-            LOG.debug(ex); // e.g. java.lang.management classes not available (on Android)
-            return tempDirName = TEMP_DIR_PREFIX + Integer.toHexString(System.identityHashCode(JRubyClassLoader.class));
-        }
-    }
-
-    private static String systemTmpDir() {
-        try {
-            return System.getProperty("java.io.tmpdir");
-        }
-        catch (SecurityException ex) {
-            LOG.warn("could not access 'java.io.tmpdir' will use working directory", ex);
-        }
-        return "";
+        super.addURL(url);
     }
 
     /**
@@ -191,5 +118,25 @@ public class JRubyClassLoader extends ClassDefiningJRubyClassLoader {
             catch (Exception e) { throw new RuntimeException(e); }
         }
         return unloader;
+    }
+
+    final static ProtectionDomain DEFAULT_DOMAIN;
+
+    static {
+        ProtectionDomain defaultDomain = null;
+        try {
+            defaultDomain = JRubyClassLoader.class.getProtectionDomain();
+        } catch (SecurityException se) {
+            // just use null since we can't acquire protection domain
+        }
+        DEFAULT_DOMAIN = defaultDomain;
+    }
+
+    public Class<?> defineClass(String name, byte[] bytes) {
+        return super.defineClass(name, bytes, 0, bytes.length, DEFAULT_DOMAIN);
+    }
+
+    public Class<?> defineClass(String name, byte[] bytes, ProtectionDomain domain) {
+        return super.defineClass(name, bytes, 0, bytes.length, domain);
     }
 }

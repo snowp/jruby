@@ -82,6 +82,8 @@ project 'JRuby Core' do
 
   jar 'me.qmx.jitescript:jitescript:0.4.1', :exclusions => ['org.ow2.asm:asm-all']
 
+  pom 'org.jboss.shrinkwrap:shrinkwrap-depchain-java7:1.2.6'
+
   plugin_management do
     plugin( 'org.eclipse.m2e:lifecycle-mapping:1.0.0',
             'lifecycleMappingMetadata' => {

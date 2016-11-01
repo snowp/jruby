@@ -282,6 +282,12 @@ DO NOT MODIFIY - GENERATED CODE
         </exclusion>
       </exclusions>
     </dependency>
+    <dependency>
+      <groupId>org.jboss.shrinkwrap</groupId>
+      <artifactId>shrinkwrap-depchain-java7</artifactId>
+      <version>1.2.6</version>
+      <type>pom</type>
+    </dependency>
   </dependencies>
   <build>
     <defaultGoal>package</defaultGoal>
