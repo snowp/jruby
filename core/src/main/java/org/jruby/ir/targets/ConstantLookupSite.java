@@ -33,8 +33,6 @@ public class ConstantLookupSite extends MutableCallSite {
     private final String name;
     private final boolean publicOnly;
 
-    private volatile RubySymbol symbolicName;
-
     private final SiteTracker tracker = new SiteTracker();
 
     public static final Handle BOOTSTRAP = new Handle(Opcodes.H_INVOKESTATIC, p(ConstantLookupSite.class), "constLookup", sig(CallSite.class, MethodHandles.Lookup.class, String.class, MethodType.class, String.class, int.class));
@@ -59,12 +57,6 @@ public class ConstantLookupSite extends MutableCallSite {
         return site;
     }
 
-    private RubySymbol getSymbolicName(ThreadContext context) {
-        RubySymbol symbolicName = this.symbolicName;
-        if (symbolicName != null) return symbolicName;
-        return this.symbolicName = context.runtime.fastNewSymbol(name);
-    }
-
     public IRubyObject searchConst(ThreadContext context, StaticScope staticScope) {
         // Lexical lookup
         Ruby runtime = context.getRuntime();
@@ -81,7 +73,7 @@ public class ConstantLookupSite extends MutableCallSite {
 
         // Call const_missing or cache
         if (constant == null) {
-            return module.callMethod(context, "const_missing", getSymbolicName(context));
+            return module.callMethod(context, "const_missing", context.runtime.fastNewSymbol(name));
         }
 
         SwitchPoint switchPoint = (SwitchPoint) runtime.getConstantInvalidator(name).getData();
@@ -116,7 +108,7 @@ public class ConstantLookupSite extends MutableCallSite {
 
         // Call const_missing or cache
         if (constant == null) {
-            return module.callMethod(context, "const_missing", getSymbolicName(context));
+            return module.callMethod(context, "const_missing", context.runtime.fastNewSymbol(name));
         }
 
         // bind constant until invalidated
@@ -133,7 +125,7 @@ public class ConstantLookupSite extends MutableCallSite {
 
         // Call const_missing or cache
         if (constant == null) {
-            return module.callMethod(context, "const_missing", getSymbolicName(context));
+            return module.callMethod(context, "const_missing", context.runtime.fastNewSymbol(name));
         }
 
         return constant;
