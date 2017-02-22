@@ -106,10 +106,6 @@ public class ConstantLookupSite extends MutableCallSite {
     public IRubyObject searchModuleForConst(ThreadContext context, IRubyObject cmVal) throws Throwable {
         RubyModule module = (RubyModule) cmVal;
 
-        if (checkForBailout(module)) {
-            return bail(context, cmVal, noCacheSMFC());
-        }
-
         // Inheritance lookup
         Ruby runtime = context.getRuntime();
         IRubyObject constant = publicOnly ? module.getConstantFromNoConstMissing(name, false) : module.getConstantNoConstMissing(name);
@@ -147,10 +143,6 @@ public class ConstantLookupSite extends MutableCallSite {
             module = (RubyModule) cmVal;
         } else {
             throw runtime.newTypeError(cmVal + " is not a type/class");
-        }
-
-        if (checkForBailout(module)) {
-            return bail(context, cmVal, noCacheISC());
         }
 
         // Inheritance lookup
@@ -212,27 +204,6 @@ public class ConstantLookupSite extends MutableCallSite {
             tracker.clearTypes();
         }
         return fallback;
-    }
-
-    private boolean checkForBailout(RubyModule module) {
-        // Invalidated too many times
-        if (tracker.clearCount() > Options.INVOKEDYNAMIC_MAXFAIL.load()) {
-            if (Options.INVOKEDYNAMIC_LOG_CONSTANTS.load()) LOG.info(name + "\tinvalidated more than " + Options.INVOKEDYNAMIC_MAXFAIL.load() + " times ");
-            return true;
-        }
-
-        // Too many types encountered
-        if ((!tracker.hasSeenType(module.id) && tracker.seenTypesCount() + 1 > Options.INVOKEDYNAMIC_MAXPOLY.load())) {
-            if (Options.INVOKEDYNAMIC_LOG_CONSTANTS.load()) LOG.info(name + "\tencountered more than " + Options.INVOKEDYNAMIC_MAXPOLY.load() + " types ");
-            return true;
-        }
-
-        return false;
-    }
-
-    private IRubyObject bail(ThreadContext context, IRubyObject cmVal, MethodHandle noncachingFallback) throws Throwable {
-        setTarget(noncachingFallback);
-        return (IRubyObject) noncachingFallback.invokeExact(context, cmVal);
     }
 
     private void bind(Ruby runtime, RubyModule module, IRubyObject constant, MethodHandle cachingFallback) {
