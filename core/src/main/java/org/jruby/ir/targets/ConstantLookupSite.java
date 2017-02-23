@@ -35,8 +35,6 @@ public class ConstantLookupSite extends MutableCallSite {
 
     private volatile RubySymbol symbolicName;
 
-    private final SiteTracker tracker = new SiteTracker();
-
     public static final Handle BOOTSTRAP = new Handle(Opcodes.H_INVOKESTATIC, p(ConstantLookupSite.class), "constLookup", sig(CallSite.class, MethodHandles.Lookup.class, String.class, MethodType.class, String.class, int.class));
 
     public ConstantLookupSite(MethodType type, String name, boolean publicOnly) {
@@ -163,8 +161,6 @@ public class ConstantLookupSite extends MutableCallSite {
         // bind constant until invalidated
         bind(runtime, module, constant, ISC());
 
-        tracker.addType(module.id);
-
         if (Options.INVOKEDYNAMIC_LOG_CONSTANTS.load()) {
             LOG.info(name + "\tconstant cached from type " + cmVal.getMetaClass());
         }
@@ -194,39 +190,10 @@ public class ConstantLookupSite extends MutableCallSite {
     }
 
     private MethodHandle getFallback(RubyModule module, MethodHandle cachingFallback) {
-        MethodHandle fallback;// if we've cached any types and we haven't seen this new type...
-        if (tracker.seenTypesCount() > 0 && !tracker.hasSeenType(module.id)) {
-
-            // stack it up into a PIC
-            if (Options.INVOKEDYNAMIC_LOG_CONSTANTS.load()) LOG.info(name + "\tconstant added to PIC");
-
-            fallback = getTarget();
-
-        } else {
-
-            // wipe out site with this new type
-            String bound = tracker.seenTypesCount() > 0 ? "rebound" : "bound";
-            if (Options.INVOKEDYNAMIC_LOG_CONSTANTS.load()) LOG.info(name + "\tconstant " + bound);
-
-            fallback = cachingFallback;
-            tracker.clearTypes();
-        }
-        return fallback;
+        return cachingFallback;
     }
 
     private boolean checkForBailout(RubyModule module) {
-        // Invalidated too many times
-        if (tracker.clearCount() > Options.INVOKEDYNAMIC_MAXFAIL.load()) {
-            if (Options.INVOKEDYNAMIC_LOG_CONSTANTS.load()) LOG.info(name + "\tinvalidated more than " + Options.INVOKEDYNAMIC_MAXFAIL.load() + " times ");
-            return true;
-        }
-
-        // Too many types encountered
-        if ((!tracker.hasSeenType(module.id) && tracker.seenTypesCount() + 1 > Options.INVOKEDYNAMIC_MAXPOLY.load())) {
-            if (Options.INVOKEDYNAMIC_LOG_CONSTANTS.load()) LOG.info(name + "\tencountered more than " + Options.INVOKEDYNAMIC_MAXPOLY.load() + " types ");
-            return true;
-        }
-
         return false;
     }
 
