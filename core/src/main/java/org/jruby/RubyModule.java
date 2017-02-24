@@ -313,8 +313,6 @@ public class RubyModule extends RubyObject {
 
         id = runtime.allocModuleId();
 
-        idTest = newIdTest();
-
         runtime.addModule(this);
         // if (parent == null) parent = runtime.getObject();
         setFlag(NEEDSIMPL_F, !isClass());
@@ -328,6 +326,14 @@ public class RubyModule extends RubyObject {
 
         // set up an invalidator for use in new optimization strategies
         methodInvalidator = OptoFactory.newMethodInvalidator(this);
+    }
+
+    public MethodHandle getIdTest() {
+        if (idTest == null) {
+            return idTest = newIdTest();
+        } else {
+            return idTest;
+        }
     }
 
     /** used by MODULE_ALLOCATOR and RubyClass constructors
@@ -4504,7 +4510,7 @@ public class RubyModule extends RubyObject {
      * Pre-built test that takes ThreadContext, IRubyObject and checks that the object is a module with the
      * same ID as this one.
      */
-    public final MethodHandle idTest;
+    public MethodHandle idTest;
 
     /**
      * The class/module within whose namespace this class/module resides.
